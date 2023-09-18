@@ -1,0 +1,570 @@
+---
+title: "Intro to Making Maps with R"
+subtitle: "UNBC Applied Analysis Hub Workshop"
+date: "September 19, 2023"
+author: "Katie Tjaden-McClement"
+format:
+  revealjs:
+    incremental: true
+    slide-number: c
+excecute:
+  echo: true
+  eval: true
+title-slide-attributes: 
+  data-background-image: images/title_background.png
+---
+
+## Outline {background-image="images/title_background.png" background-opacity="0.5"}
+
+-   benefits to making maps in R
+-   key R packages
+-   basics of spatial data
+-   quickly making maps with base R
+-   making high quality maps with ggmap
+    -   adding inset maps
+-   interactive maps with leaflet
+-   tips and resources for spatial analysis in R
+
+## Who am I? {.r-strech}
+
+::: columns
+::: {.column width="60%"}
+-   MSc student in UBC WildCo Lab
+
+-   Study system: Chilcotin Plateau, methods: camera traps
+
+    -   mammal community responses to disturbance to inform caribou conservation
+
+    -   feral horse competition with moose and deer
+
+-   enthusiastic R user!
+:::
+
+::: {.column width="40%"}
+![](images/Katie_and_Sunny_field.JPG) ![](images/caribou.jpeg)
+:::
+:::
+
+## Why make maps in R?
+
+-   reproducible!
+-   keeps everything in the same place
+-   faster (once you get the hang of it and have code to start with)
+-   open source
+
+------------------------------------------------------------------------
+
+![](images/species_group_map_poster.png){fig-align="center"}
+
+------------------------------------------------------------------------
+
+![](images/world_map_ex.png){fig-align="center"}
+
+------------------------------------------------------------------------
+![](images/caribou_weekly_animation.gif){fig-align="center"}
+
+## Packages {.smaller}
+
+::: columns
+::: {.column width="60%"}
+-   terra
+
+    -   all things spatial in R
+    -   super powerful for spatial manipulation and analysis
+
+-   ggmap
+
+    -   mapping functionality with ggplot syntax
+
+-   leaflet
+
+    -   interactive maps
+
+-   tidyterra
+
+    -   makes tidyverse functions like left_join and mutate work for terra spatial objects
+    -   compatibility with ggplot
+:::
+
+::: {.column width="40%"}
+```{r}
+#| echo: true
+#| eval: true
+#| code-line-numbers: "7-10"
+
+list.of.packages <- c("terra", "ggmap", "leaflet", 
+                      "ggplot2", "ggspatial", "cowplot", 
+                      "bcmaps", "dplyr", "tidyterra")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+library(terra)
+library(ggmap)
+library(leaflet)
+library(tidyterra)
+library(ggplot2)
+library(ggspatial)
+library(cowplot)
+library(dplyr)
+```
+
+-   raster, sf, and sp are older packages for dealing with spatial data in R
+:::
+:::
+
+## Spatial data {.smaller}
+
+::: columns
+::: {.column width="50%"}
+Types of data:
+
+-   vector: points, lines, polygons
+
+-   raster: pixels across an area, each with a value
+:::
+
+::: {.column width="50%"}
+![](images/vector_ex.png) 
+![](images/raster_ex.png){height="300px" fig-align="center"}
+:::
+:::
+
+::: aside
+Images: https://id.land/blog/raster-vs-vector-data-the-ultimate-guide
+:::
+
+## Spatial data {.smaller}
+
+::: columns
+::: {.column width="50%"}
+CRS - Coordinate Reference System
+
+-   datum - model of the shape of the earth
+
+    -   what do the numbers describing your points/shapes/pixels mean? what are they relative to?
+
+    -   origin, unit of measure
+
+-   projection - how the earth has been flattened to produce a 2D map
+
+-   must be the same to combine different spatial data, can transform between CRS's
+:::
+
+::: {.column width="50%"}
+![](images/crs_ex.png) 
+:::
+:::
+
+::: aside
+Image: ESRI
+:::
+
+## Loading our example spatial data in R {.smaller}
+
+::: columns
+::: {.column width="50%"}
+```{r}
+#| output: true
+#| eval: true
+#| echo: true
+
+##### load data #####
+cameras <- vect("data_workshop/cameras/")
+cameras
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+#| output: true
+#| eval: true
+#| echo: true
+
+# polygons of disturbance
+cutblocks <- vect("data_workshop/cutblocks/")
+cutblocks
+```
+
+```{r}
+#| output: false
+#| eval: true
+#| echo: true
+
+fires <- vect("data_workshop/fires/")
+fires
+```
+:::
+:::
+
+## Loading our example spatial data in R {.smaller}
+
+```{r}
+#| output: true
+#| eval: true
+#| echo: true
+
+# raster of elevation data
+elevation <- rast("data_workshop/elevation.tiff")
+elevation
+
+# summarized camera detections of lynx and snowshoe hare 
+detect <- read.csv("data_workshop/lynx_hare_detections.csv")
+head(detect)
+```
+
+## Plot spatial data with base R plot {.smaller}
+
+-   simple and quick, but provides limited control of aesthetics
+
+::: r-stack
+::: {.fragment .fade-in-then-out}
+```{r}
+#| eval: true
+#| echo: true
+#| fig.width: 7
+
+# point data (vector)
+plot(cameras) 
+```
+:::
+
+::: {.fragment .fade-in-then-out}
+```{r}
+#| eval: true
+#| echo: true
+#| fig.width: 7
+
+# polygon data (vector), specifying the colour
+plot(fires, col = "red")
+```
+:::
+
+::: {.fragment .fade-in-then-out}
+```{r}
+#| eval: true
+#| echo: true
+#| fig.width: 7
+
+# continuous elevation raster data
+plot(elevation)
+```
+:::
+
+::: {.fragment .fade-in}
+```{r}
+#| eval: true
+#| echo: true
+#| fig.width: 7
+
+# add multiple layers
+plot(elevation) 
+plot(fires, col = "red", alpha = 0.5, add = TRUE)
+plot(cameras, add = TRUE)
+```
+:::
+:::
+
+## ggmap: basemaps
+
+::: nonincremental
+-   define the area you want to map and download a basemap
+
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "|2-5|7-9|12-14"
+
+# define extent of your area of interest
+aoi <- cameras %>% 
+  # add a buffer around the actual camera points
+  # so the the base map extends beyond them (in meters)
+  buffer(6000) %>% 
+  # get the extent of this area (xmin, xmax, ymin, ymax)
+  ext()
+
+extent <- as.vector(aoi)
+
+## load background "basemap"
+basemap <- get_map(location = c(extent[[1]], extent[[3]],
+                                extent[[2]], extent[[4]]), 
+                   maptype = "terrain", source = "stamen")
+```
+:::
+
+-   other maptype options as well
+
+## ggmap: plotting camera points
+
+::: r-stack
+::: {.fragment .fade-in-then-out}
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "1|2-4"
+
+ggmap(basemap) +
+  # add camera points:
+  geom_spatvector(data = cameras,
+                  inherit.aes = F)
+```
+:::
+
+::: {.fragment .fade-in}
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "|4-5|6"
+
+# change colours and shapes based on a variable: camera location
+ggmap(basemap) +
+  geom_spatvector(data = cameras,  inherit.aes = F,
+                  aes(colour = location,
+                      shape = location)) +
+  scale_colour_manual(values = c("blue4", "orange"))
+```
+:::
+:::
+
+## ggmap: plotting raster data
+
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "|3-4"
+#| fig.width: 7
+#| fig-align: "center"
+
+# elevation as the basemap
+ggplot() + # you don't need to start with ggmap()
+  geom_spatraster(data = elevation, inherit.aes = F) +
+  geom_spatvector(data = cameras, inherit.aes = F) +
+  scale_fill_viridis_c() +
+  labs(fill = "Elevation") +
+  theme_void() # removes axes, basemap colors, etc.
+
+```
+
+## ggmap: adding disturbance polygons
+
+::: r-stack
+::: {.fragment .fade-out}
+::: nonincremental
+-   combine the cutblock and fire layers for efficiency and to easily make a nice legend
+
+```{r}
+#| eval: true
+#| echo: true
+#| output: false
+
+# can just use rbind for spatvector objects with the same crs
+dist <- rbind(cutblocks, fires)
+plot(dist) # quick check
+
+```
+:::
+:::
+
+::: fragment
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "2-5"
+#| output-location: slide
+#| fig.height: 6
+#| fig.width: 10
+
+cams_and_dist_map <- ggmap(basemap) +
+  geom_spatvector(data = dist, inherit.aes = F,
+                  aes(fill = dist_type,
+                      colour = dist_type), #outline colour
+                  alpha = 0.5) +
+  geom_spatvector(data = cameras, inherit.aes = F,
+                  aes(shape = location)) +
+  scale_fill_manual(values = c("red2", "purple3")) +
+  scale_colour_manual(values = c("red2", "purple3")) +
+  guides(colour = "none") + # remove redundant outline colour legend
+  labs(shape = "Camera traps",
+       fill = "",
+       x = "", y = "")
+cams_and_dist_map
+
+```
+:::
+:::
+
+## ggmap: adding map features
+
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "|3-4|5-8"
+#| output-location: slide
+#| fig.height: 6
+#| fig.width: 10
+
+### Adding features using the ggspatial package
+cams_and_dist_map <- cams_and_dist_map +
+  # scale bar:
+  annotation_scale(location="bl", width_hint=0.3) +
+  # north arrow:
+  annotation_north_arrow(location = "tl", 
+                         height = unit(1, "cm"),
+                         width = unit(1, "cm"))
+cams_and_dist_map
+
+```
+
+## ggmap: lynx and hare detection map
+
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "1-4|5-16|9-13"
+#| output-location: slide
+#| fig.height: 6
+#| fig.width: 10
+
+# merge detections csv with station spatial data
+detect_vect <- right_join(cameras, detect, by = "station_id",
+                         keep = F) %>% 
+  arrange(desc(Species)) # arrange the dataframe so that lynx will plot on top
+
+lynx_hare_detect_map <- ggmap(basemap) +
+  geom_spatvector(data = cameras, inherit.aes = F,
+                   shape = 17, size = 1) +
+  geom_spatvector(data = detect_vect, inherit.aes = F,
+                  aes(colour = Species,
+                      shape = Species,
+                      size = detections),
+                  alpha = 0.7) +
+  scale_shape_manual(values = c(15,16)) +
+  scale_size_continuous(range = c(2, 8)) + # change the range of point sizes, default ones were pretty small
+  theme_void()
+lynx_hare_detect_map
+```
+
+## Inset maps {.smaller}
+
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "1-7|9-16"
+#| output-location: column-fragment
+#| fig-width: 4
+#| fig-height: 4
+
+# load outline of BC
+bc <- vect(bcmaps::bc_bound()) %>% 
+  project("EPSG:4326")
+
+# aoi as polygon
+aoi <- as.polygons(aoi)  
+crs(aoi) <- "EPSG:4326"
+
+# add outline of your mapped area to BC outline
+inset <- ggplot() +
+  geom_spatvector(data = bc, inherit.aes = F,
+                  fill = "white", colour = "black") +
+  geom_spatvector(data = aoi, fill = "white",
+                  colour = "red", 
+                  lwd = 1) +
+  theme_void()
+inset
+
+```
+
+-   world/country/province shapefiles available online
+
+## Inset maps
+
+```{r}
+#| eval: true
+#| echo: true
+#| code-line-numbers: "3-8|10-14|16-18"
+
+# plot along with main map using cowplot
+
+# you'll likely need to play around with margins, legend locations, 
+# and plot size for the inset to fit nicely
+cams_and_dist_map_prep <- cams_and_dist_map +
+  theme(plot.margin = margin(0.5, 5, 0, 0, "cm"),
+        legend.position = c(1.2, 0.8),
+        legend.key=element_blank())
+
+final_dist_map <- ggdraw() +
+  draw_plot(cams_and_dist_map_prep, x = 0, y = 0) +
+  draw_plot(inset, x = 0.72, y = 0.15, width = 0.3, height = 0.3)
+# this may look weird in the plot window! Trust the process and save
+# at your desired size to see how things need to be adjusted
+
+# save map
+ggsave(final_dist_map, filename = "camera_disturbance_map.png",
+       width = 18, height = 12, units = "cm")
+
+```
+
+-   can also add insets to other non-map figures this way!
+
+## Inset maps {.r-strech}
+
+![](camera_disturbance_map.png){fig-align = "center"}
+
+## Interactive maps: plet {.smaller}
+
+::: nonincremental
+-   quick, but provides limited control of aesthetics
+
+```{r}
+#| eval: true
+#| echo: true
+#| fig-height: 5.5
+#| fig-width: 11
+
+plet(cameras)
+```
+:::
+
+## Interactive maps: plet {.smaller}
+
+::: nonincremental
+-   specify colour, satellite imagery basemap, and add popup labels
+
+```{r}
+#| eval: true
+#| echo: true
+#| fig-height: 5
+#| fig-width: 11
+
+plet(cameras, col = "blue", tiles = c("Esri.WorldImagery"),
+     label = T, popup = T, alpha = 0.6)
+```
+:::
+
+## Interactive maps: multiple layers {.smaller}
+
+```{r}
+#| eval: true
+#| echo: true
+#| fig-height: 5
+#| fig-width: 11
+#| code-line-numbers: "1-2|3-4|5-6"
+
+leaflet() %>% 
+  addProviderTiles(providers$Esri.WorldImagery) %>% 
+  addPolygons(data = fires, col = "red", opacity = 0.4,
+              weight = 1, label = ~FIRE_YEAR) %>% 
+  addCircles(data = cameras, radius = 5,
+             label = ~station_id, popup = ~location)
+```
+
+## Some other resources for spatial analysis in R
+
+-   MODISTools: download remote sensing data e.g. EVI, NDVI
+
+-   bcmaps: download various spatial data for BC, e.g. waterbodies
+
+-   WildCo Lab data extraction github repo
+
+    -   https://github.com/WildCoLab/WildCo_GIS_Extraction
+
+    -   Note that this uses the older sf and raster packages, not terra
