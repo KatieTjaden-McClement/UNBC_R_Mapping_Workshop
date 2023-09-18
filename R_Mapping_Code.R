@@ -70,7 +70,7 @@ extent <- as.vector(aoi)
 ## load background "basemap"
 basemap <- get_map(location = c(extent[[1]], extent[[3]],
                                 extent[[2]], extent[[4]]), 
-                   maptype = "roadmap")
+                   maptype = "terrain", source = "stamen")
 
 ggmap(basemap) +
   # add camera points:
