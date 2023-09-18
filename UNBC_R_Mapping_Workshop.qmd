@@ -61,6 +61,7 @@ title-slide-attributes:
 ![](images/world_map_ex.png){fig-align="center"}
 
 ------------------------------------------------------------------------
+
 ![](images/caribou_weekly_animation.gif){fig-align="center"}
 
 ## Packages {.smaller}
@@ -124,8 +125,7 @@ Types of data:
 :::
 
 ::: {.column width="50%"}
-![](images/vector_ex.png) 
-![](images/raster_ex.png){height="300px" fig-align="center"}
+![](images/vector_ex.png) ![](images/raster_ex.png){height="300px" fig-align="center"}
 :::
 :::
 
@@ -151,7 +151,7 @@ CRS - Coordinate Reference System
 :::
 
 ::: {.column width="50%"}
-![](images/crs_ex.png) 
+![](images/crs_ex.png)
 :::
 :::
 
@@ -557,7 +557,11 @@ leaflet() %>%
              label = ~station_id, popup = ~location)
 ```
 
-## Some other resources for spatial analysis in R
+## Some other resources for spatial analysis in R {.smaller}
+
+-   Geocomputation with R online book
+
+    -   https://r.geocompx.org/
 
 -   MODISTools: download remote sensing data e.g. EVI, NDVI
 
