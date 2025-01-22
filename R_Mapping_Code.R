@@ -1,5 +1,6 @@
 ### UNBC Mapping in R Workshop Code
 ### September 19, 2023
+### Updated Jan 2025
 ### Led by Katie Tjaden-McClement
 
 # Load packages
@@ -35,6 +36,17 @@ elevation <- rast("data_workshop/elevation.tiff")
 detect <- read.csv("data_workshop/lynx_hare_detections.csv")
 head(detect)
 
+### OR - make a spatial object from a CSV with coordinate data
+cameras_tmp <- read.csv("data_workshop/cameras.csv")
+
+# convert to vector object of points
+cameras_tmp <- cameras_tmp %>% 
+  vect(# tell terra what columns your coordinates are stored in:
+       geom = c("Longitude", "Latitude"), 
+       # tell terra what crs those coords refer to (WGS 84 in this case)
+       crs = "epsg:4326")
+
+cameras_tmp # now a SpatVector object!
 
 ##### Making Maps #####
 
