@@ -54,9 +54,8 @@ plot(fires, col = "red", alpha = 0.5, add = TRUE)
 plot(cameras, add = TRUE)
 
 ### using ggmap package
-# !!all spatial layers must be have CRS WGS84 !!
+# !! all spatial layers must have same CRS !!
 
-## load basemap map
 # define extent of your area of interest
 aoi <- cameras %>% 
   # add a buffer around the actual camera points
@@ -67,15 +66,94 @@ aoi <- cameras %>%
 
 extent <- as.vector(aoi)
 
-## load background "basemap"
-basemap <- get_map(location = c(extent[[1]], extent[[3]],
-                                extent[[2]], extent[[4]]), 
-                   maptype = "terrain", source = "stamen")
+center <- as.polygons(aoi) %>% 
+  centroids() %>% 
+  crds()
 
-ggmap(basemap) +
+### API Keys
+
+# NOTE: stamen maps are no longer open access,
+# so ggmap now loads basemaps from Google Maps or Stadia Maps,
+# both of with require an account and registering an API key
+# Both of these provide free monthly credits, which would be almost impossible to 
+# exceed by loading basemaps through ggmap
+
+### For Stadia Maps, register here:
+# https://client.stadiamaps.com/signup/
+# and find your API key by clicking "Manage Properties & Authentification"
+
+# Register your Stadia Maps API key:
+register_stadiamaps("YOUR-API-KEY", write = TRUE)
+# when write = TRUE, you only have to do this once and it will be saved in for R environment
+# make sure not to share your API key (e.g. in a script that lives on github)
+
+### For Google Maps, register here:
+# https://mapsplatform.google.com/
+# and create/find your API key under "Keys and Credentials"
+
+# Register it in R using:
+register_google("YOUR-API-KEY", write = TRUE)
+
+### Loading ggmap basemaps
+
+## load Stadia basemap
+basemap_stadia <- get_stadiamap(bbox = c(extent[[1]], extent[[3]],
+                                         extent[[2]], extent[[4]]), 
+                                zoom = 8, # level of detail
+                                maptype = "stamen_terrain")
+# other options for map type: “stamen_toner”, “stamen_toner_lite”, 
+# “stamen_watercolor”, “alidade_smooth”, “alidade_smooth_dark”, 
+# “outdoors”, “stamen_terrain_background”, “stamen_toner_background”, 
+# “stamen_terrain_labels”, “stamen_terrain_lines”, “stamen_toner_labels”, 
+# “stamen_toner_lines”
+
+# note that higher zoom levels produce a strange grid effect...
+
+ggmap(basemap_stadia) +
   # add camera points:
   geom_spatvector(data = cameras,
                   inherit.aes = F)
+
+## load Google basemap
+basemap_google <- get_googlemap(center = c(center[[1]], center[[2]]), 
+                                zoom = 8, # how close to the center you are
+                                maptype = "roadmap")
+# other options for map type: "terrain", "satellite", and "hybrid"
+
+ggmap(basemap_google) +
+  # add camera points:
+  geom_spatvector(data = cameras,
+                  inherit.aes = F) +
+  # you can only get square google basemaps, 
+  # so change the extent here instead:
+  lims(x = c(extent[[1]], extent[[2]]),
+       y = c(extent[[3]], extent[[4]]))
+
+# it's a bit fiddly and not intuitive, but you can change elements of the map style
+style1 <- c(feature = "all",
+            element = "labels", visibility = "off")
+style2 <- c("&style=", feature = "landscape.natural.landcover",
+            element = "geometry", saturation = "-48")
+style3 <- c("&style=", feature = "landscape.natural.landcover",
+            element = "geometry", lightness = "-15")
+style <- c(style1, style2, style3)
+
+basemap_google <- get_googlemap(center = c(center[[1]], center[[2]]), 
+                               zoom = 8, # how close to the center you are
+                               maptype = "roadmap",
+                               style = style)
+
+ggmap(basemap_google) +
+  # add camera points:
+  geom_spatvector(data = cameras,
+                  inherit.aes = F) +
+  # you can only get square google basemaps, 
+  # so change the extent here instead:
+  lims(x = c(extent[[1]], extent[[2]]),
+       y = c(extent[[3]], extent[[4]]))
+
+# let's use the Stadia Maps basemap from here on:
+basemap <- basemap_stadia
 
 # change colours and shapes based on a variable: camera location
 ggmap(basemap) +
@@ -140,7 +218,7 @@ lynx_hare_detect_map <- ggmap(basemap) +
                   alpha = 0.7) +
   scale_shape_manual(values = c(15,16)) +
   scale_size_continuous(range = c(2, 8)) + # change the range of point sizes, default ones were pretty small
-  theme_void()
+  theme_void() # remove axes and other features
 lynx_hare_detect_map  
 
 
